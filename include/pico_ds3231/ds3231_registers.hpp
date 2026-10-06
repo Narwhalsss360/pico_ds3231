@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <ctime>
 
 namespace ds3231 {
     enum class Register : uint8_t {
@@ -28,7 +29,7 @@ namespace ds3231 {
     struct RegisterDeclaration<Register::timekeeping> {
         static constexpr uint8_t register_start = 0x00;
 
-        static constexpr uint8_t register_length = 0x06;
+        static constexpr uint8_t register_length = 0x07;
 
         enum AddressFunctionOffset : uint8_t {
             af_seconds = 0x00,
@@ -39,6 +40,14 @@ namespace ds3231 {
             af_month_and_century = 0x05,
             af_year = 0x06
         };
+
+        static bool is_12_hour(const uint8_t (&buffer)[register_length]);
+
+        static void buffer_to_tm(const uint8_t (&buffer)[register_length], tm& time);
+
+        static tm buffer_to_tm(const uint8_t (&buffer)[register_length]) ;
+
+        static void tm_to_buffer(const tm& time, uint8_t (&buffer)[register_length]);
     };
 
     template <uint8_t alarm_start>
