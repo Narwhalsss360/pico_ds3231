@@ -194,7 +194,7 @@ namespace ds3231 {
     template <Register _register>
     constexpr uint8_t start() {
         static_assert(_register != Register::invalid, "Cannot use invalid register.");
-        return RegisterDeclaration<_register>::start;
+        return RegisterDeclaration<_register>::register_start;
     }
 
     template <Register _register>
