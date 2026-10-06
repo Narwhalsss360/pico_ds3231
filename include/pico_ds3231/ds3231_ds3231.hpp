@@ -57,6 +57,24 @@ namespace ds3231 {
             return Result::success;
         }
 
+        Result now(DateTime& dt) const {
+            Result result;
+
+            RegisterBuffer<Register::timekeeping> buffer;
+            if ((result = load<Register::timekeeping>(buffer)) != Result::success) {
+                return result;
+            }
+
+            RegisterDeclaration<Register::timekeeping>::buffer_to_tm(buffer, dt.time);
+            return Result::success;
+        }
+
+        DateTime now() const {
+            DateTime dt;
+            now(dt);
+            return dt;
+        }
+
         template <Register _register>
         Result load(RegisterBuffer<_register>& buffer) const {
             return load(start<_register>(), length<_register>(), buffer, length<_register>());

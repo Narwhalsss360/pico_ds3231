@@ -18,6 +18,40 @@ namespace ds3231 {
         "Dec"
     };
 
+    constexpr tm invalid_time {
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+    };
+
+    constexpr bool is_leap_year(const int& tm_year) {
+        const int year = tm_year + 1900;
+        return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    }
+
+    constexpr int days_in_month(const int& tm_mon, const int& tm_year) {
+        constexpr int days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+        return (tm_mon == 1 && is_leap_year(tm_year)) ? (29) : ((tm_mon >= 0 && tm_mon <= 11) ? days[tm_mon] : 0);
+    }
+
+    constexpr bool valid(const std::tm& time) {
+        return (
+            0 <= time.tm_sec  && time.tm_sec  <= 60 &&
+            0 <= time.tm_min  && time.tm_min  <= 59 &&
+            0 <= time.tm_hour && time.tm_hour <= 23 &&
+            0 <= time.tm_mon  && time.tm_mon  <= 11 &&
+            1 <= time.tm_mday && time.tm_mday <= days_in_month(time.tm_mon, time.tm_year) &&
+            0 <= time.tm_wday && time.tm_wday <= 6  &&
+            0 <= time.tm_yday && time.tm_yday <  (is_leap_year(time.tm_year) ? 366 : 365)
+        );
+    }
+
     class DateTime {
     public:
         tm time;
@@ -68,6 +102,22 @@ namespace ds3231 {
         std::time_t to_epoch() const;
 
         ::datetime_t to_pico_datetime() const;
+
+        inline bool valid() const {
+            return ::ds3231::valid(time);
+        }
+
+        inline operator const bool() const {
+            return valid();
+        }
+
+        inline operator const std::time_t() const {
+            return to_epoch();
+        }
+
+        inline operator const ::datetime_t() const {
+            return to_pico_datetime();
+        }
     };
 
     constexpr DateTime compile_time = DateTime(__DATE__, __TIME__);
