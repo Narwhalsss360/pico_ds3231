@@ -108,7 +108,7 @@ namespace ds3231 {
     constexpr uint8_t max_register_length = 0x12;
 
     template <Register _register>
-    using RegisterBuffer = uint8_t[RegisterDeclaration<_register>::length];
+    using RegisterBuffer = uint8_t[RegisterDeclaration<_register>::register_length];
 
     template <Register _register>
     using AddressFunctionOffset = typename RegisterDeclaration<_register>::AddressFunctionOffset;
@@ -122,7 +122,7 @@ namespace ds3231 {
     template <Register _register>
     constexpr uint8_t length() {
         static_assert(_register != Register::invalid, "Cannot use invalid register.");
-        return RegisterDeclaration<_register>::length;
+        return RegisterDeclaration<_register>::register_length;
     }
 
     template <Register _register>
