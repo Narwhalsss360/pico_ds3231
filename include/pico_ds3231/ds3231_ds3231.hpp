@@ -1,11 +1,17 @@
 #pragma once
 #include "ds3231_registers.hpp"
 #include "ds3231_traits.hpp"
+#include "ds3231_datetime.hpp"
 #include <hardware/i2c.h>
 #include <hardware/gpio.h>
 #include <pico/binary_info.h>
 #include <pico/error.h>
 #include <cstring>
+
+#if defined(PICO_RP2040) && PICO_RP2040
+#include <sys/time.h>
+#include <cerrno>
+#endif
 
 namespace ds3231 {
     static inline bool is_i2c_initialized(i2c_inst_t *i2c) {
@@ -20,7 +26,9 @@ namespace ds3231 {
         timeout,
         buffer_too_small,
         buffer_too_large,
-        invalid_register_length
+        lost_power,
+        invalid_register_length,
+        invalid_datetime,
     };
 
     class DS3231 {
@@ -114,4 +122,56 @@ namespace ds3231 {
     private:
         bool _initialized;
     };
+
+#if defined(PICO_RP2040) && PICO_RP2040
+    Result sync_system_clocks(const DS3231& rtc_device) {
+        RegisterBuffer<Register::timekeeping> buffer;
+        Result result = rtc_device.load<Register::timekeeping>(buffer);
+        if (result != Result::success) {
+            return result;
+        }
+
+        DateTime dt;
+        RegisterDeclaration<Register::timekeeping>::buffer_to_tm(buffer, dt.time);
+
+        ::datetime_t pico_raw = dt.to_pico_datetime();
+        rtc_init();
+        if (!rtc_set_datetime(&pico_raw)) {
+            return Result::invalid_datetime;
+        }
+        sleep_us(64);
+
+        struct timeval tv = { .tv_sec = dt.to_epoch(), .tv_usec = 0 };
+        if (settimeofday(&tv, nullptr) != 0) {
+            if (errno == EINVAL) {
+                return Result::invalid_datetime;
+            }
+            return Result::unknown_error;
+        }
+
+        return Result::success;
+    }
+#endif
+
+    static inline Result initialize_clock_time(DS3231& ds3231) {
+        Result result;
+        if ((result = ds3231.initialize()) != Result::success) {
+            return result;
+        }
+
+        RegisterBuffer<Register::timekeeping> buffer;
+        if ((result = ds3231.load<Register::timekeeping>(buffer)) != Result::success) {
+            return result;
+        }
+
+        DateTime dt;
+        RegisterDeclaration<Register::timekeeping>::buffer_to_tm(buffer, dt.time);
+
+        if (dt.to_epoch() < compile_time.to_epoch()) {
+            RegisterDeclaration<Register::timekeeping>::tm_to_buffer(compile_time.time, buffer);
+            ds3231.put<Register::timekeeping>(buffer);
+            return Result::lost_power;
+        }
+        return Result::success;
+    }
 }
