@@ -155,9 +155,121 @@ namespace ds3231 {
         static constexpr uint8_t register_length = 0x02;
 
         enum AddressFunctionOffset : uint8_t {
-            control = 0x00,
-            control_and_status = 0x01
+            af_control = 0x00,
+            af_control_and_status = 0x01
         };
+
+        enum ControlBit : uint8_t {
+            b_alarm_1_interrupt_enable = 0x01,
+            b_alarm_2_interrupt_enable = 0x02,
+            b_interrupt_control = 0x02,
+            b_rate_select_1 = 0x03,
+            b_rate_select_2 = 0x04,
+            b_convert_temperature = 0x05,
+            b_battery_backed_square_wave_enable = 0x06,
+            b_enable_oscillator = 0x07,
+        };
+
+        enum ControlAndStatusBit : uint8_t {
+            b_alarm_1_flag = 0x00,
+            b_alarm_2_flag = 0x01,
+            b_busy = 0x02,
+            b_enable_32khz_output = 0x03,
+            b_oscillator_stop_flag = 0x07
+        };
+
+        struct Flags {
+            bool alarm_1_interrupt_enable;
+            bool alarm_2_interrupt_enable;
+            bool interrupt_control;
+            bool rate_select_2;
+            bool rate_select_1;
+            bool convert_temperature;
+            bool battery_backed_square_wave_enable;
+            bool enable_oscillator;
+
+            bool alarm_1_flag;
+            bool alarm_2_flag;
+            const bool busy;
+            bool enable_32khz_output;
+            bool oscillator_stop_flag;
+
+            inline Flags(
+                bool alarm_1_interrupt_enable,
+                bool alarm_2_interrupt_enable,
+                bool interrupt_control,
+                bool rate_select_2,
+                bool rate_select_1,
+                bool convert_temperature,
+                bool battery_backed_square_wave_enable,
+                bool enable_oscillator,
+
+                bool alarm_1_flag,
+                bool alarm_2_flag,
+                bool busy,
+                bool enable_32khz_output,
+                bool oscillator_stop_flag
+            )
+            :
+                alarm_1_interrupt_enable(alarm_1_interrupt_enable),
+                alarm_2_interrupt_enable(alarm_2_interrupt_enable),
+                interrupt_control(interrupt_control),
+                rate_select_2(rate_select_2),
+                rate_select_1(rate_select_1),
+                convert_temperature(convert_temperature),
+                battery_backed_square_wave_enable(battery_backed_square_wave_enable),
+                enable_oscillator(enable_oscillator),
+
+                alarm_1_flag(alarm_1_flag),
+                alarm_2_flag(alarm_2_flag),
+                busy(busy),
+                enable_32khz_output(enable_32khz_output),
+                oscillator_stop_flag(oscillator_stop_flag)
+            {}
+        };
+
+        static inline Flags buffer_to_flags(const uint8_t (&buffer)[register_length]) {
+            return Flags(
+                buffer[af_control] & b_alarm_1_interrupt_enable,
+                buffer[af_control] & b_alarm_2_interrupt_enable,
+                buffer[af_control] & b_interrupt_control,
+                buffer[af_control] & b_rate_select_2,
+                buffer[af_control] & b_rate_select_1,
+                buffer[af_control] & b_convert_temperature,
+                buffer[af_control] & b_battery_backed_square_wave_enable,
+                buffer[af_control] & b_enable_oscillator,
+
+                buffer[af_control_and_status] & b_alarm_1_flag,
+                buffer[af_control_and_status] & b_alarm_2_flag,
+                buffer[af_control_and_status] & b_busy,
+                buffer[af_control_and_status] & b_enable_32khz_output,
+                buffer[af_control_and_status] & b_oscillator_stop_flag
+            );
+        }
+
+        static inline void set_bit(uint8_t& byte, const bool& value, const uint8_t& offset) {
+            if (value) {
+                byte |= (1 << offset);
+            } else {
+                byte &= ~(1 << offset);
+            }
+        }
+
+        static void flags_to_buffer(const Flags& flags, uint8_t (&buffer)[register_length]) {
+                set_bit(buffer[af_control], flags.alarm_1_interrupt_enable, b_alarm_1_interrupt_enable);
+                set_bit(buffer[af_control], flags.alarm_2_interrupt_enable, b_alarm_2_interrupt_enable);
+                set_bit(buffer[af_control], flags.interrupt_control, b_interrupt_control);
+                set_bit(buffer[af_control], flags.rate_select_2, b_rate_select_2);
+                set_bit(buffer[af_control], flags.rate_select_1, b_rate_select_1);
+                set_bit(buffer[af_control], flags.convert_temperature, b_convert_temperature);
+                set_bit(buffer[af_control], flags.battery_backed_square_wave_enable, b_battery_backed_square_wave_enable);
+                set_bit(buffer[af_control], flags.enable_oscillator, b_enable_oscillator);
+
+                set_bit(buffer[af_control_and_status], flags.alarm_1_flag, b_alarm_1_flag);
+                set_bit(buffer[af_control_and_status], flags.alarm_2_flag, b_alarm_2_flag);
+                set_bit(buffer[af_control_and_status], flags.enable_32khz_output, b_enable_32khz_output);
+                set_bit(buffer[af_control_and_status], flags.oscillator_stop_flag, b_oscillator_stop_flag);
+        }
     };
 
     template <>
@@ -178,8 +290,8 @@ namespace ds3231 {
         static constexpr uint8_t register_length = 0x02;
 
         enum AddressFunctionOffset : uint8_t {
-            temperature_msb = 0x00,
-            temperature_lsb = 0x00
+            af_temperature_msb = 0x00,
+            af_temperature_lsb = 0x00
         };
     };
 
