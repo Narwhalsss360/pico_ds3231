@@ -14,6 +14,16 @@
 #endif
 
 namespace ds3231 {
+    constexpr float temperature_min = -40;
+
+    constexpr float temperature_max = 85;
+
+    constexpr float invalid_temperature_sentinel = -41;
+
+    constexpr bool valid_temperature(const float& temperature) {
+        return temperature_min <= temperature && temperature <= temperature_max;
+    }
+
     static inline bool is_i2c_initialized(i2c_inst_t *i2c) {
         return (i2c_get_hw(i2c)->enable & I2C_IC_ENABLE_ENABLE_BITS) != 0;
     }
@@ -73,6 +83,34 @@ namespace ds3231 {
             DateTime dt;
             now(dt);
             return dt;
+        }
+
+        Result adjust(const DateTime& dt) {
+            Result result;
+            RegisterBuffer<Register::timekeeping> dt_buffer;
+            RegisterDeclaration<Register::timekeeping>::tm_to_buffer(dt.time, dt_buffer);
+            if ((result = put<Register::timekeeping>(dt_buffer)) != Result::success) {
+                return result;
+            }
+            return Result::success;
+        }
+
+        float temperature() const {
+            float out;
+            if (temperature(out) != Result::success) {
+                return invalid_temperature_sentinel;
+            }
+            return out;
+        }
+
+        Result temperature(float& out) const {
+            RegisterBuffer<Register::temperature> buffer;
+            Result result = load<Register::temperature>(buffer);
+            if (result != Result::success) {
+                return result;
+            }
+            out = RegisterDeclaration<Register::temperature>::buffer_to_temperature(buffer);
+            return Result::success;
         }
 
         template <Register _register>
@@ -177,19 +215,37 @@ namespace ds3231 {
             return result;
         }
 
-        RegisterBuffer<Register::timekeeping> buffer;
-        if ((result = ds3231.load<Register::timekeeping>(buffer)) != Result::success) {
+        RegisterBuffer<Register::control_and_status> cas_buffer;
+        if ((result = ds3231.load<Register::control_and_status>(cas_buffer)) != Result::success) {
+            return result;
+        }
+
+
+        RegisterBuffer<Register::timekeeping> dt_buffer;
+        if ((result = ds3231.load<Register::timekeeping>(dt_buffer)) != Result::success) {
             return result;
         }
 
         DateTime dt;
-        RegisterDeclaration<Register::timekeeping>::buffer_to_tm(buffer, dt.time);
+        RegisterDeclaration<Register::timekeeping>::buffer_to_tm(dt_buffer, dt.time);
+        RegisterDeclaration<Register::control_and_status>::Flags flags = RegisterDeclaration<Register::control_and_status>::buffer_to_flags(cas_buffer);
 
-        if (dt.to_epoch() < compile_time.to_epoch()) {
-            RegisterDeclaration<Register::timekeeping>::tm_to_buffer(compile_time.time, buffer);
-            ds3231.put<Register::timekeeping>(buffer);
+        if (dt.to_epoch() < compile_time.to_epoch() || flags.oscillator_stop_flag) {
+            if ((result = ds3231.adjust(compile_time)) != Result::success) {
+                return result;
+            }
+
+            if (flags.oscillator_stop_flag) {
+                flags.oscillator_stop_flag = false;
+                RegisterDeclaration<Register::control_and_status>::flags_to_buffer(flags, cas_buffer);
+                if ((result = ds3231.put<Register::control_and_status>(cas_buffer)) != Result::success) {
+                    return result;
+                }
+            }
+
             return Result::lost_power;
         }
+
         return Result::success;
     }
 }
