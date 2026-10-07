@@ -41,13 +41,14 @@ namespace ds3231 {
         invalid_datetime,
     };
 
-    class DS3231 {
+    template <typename TraitsDefinition = DefaultTraits>
+    class BasicDS3231 {
     public:
-        using Traits = DefaultTraits;
+        using Traits = TraitsDefinition;
 
         mutable Traits traits;
 
-        DS3231()
+        BasicDS3231()
             : traits(Traits()), _initialized(false) {}
 
         Result initialize() {
@@ -179,10 +180,21 @@ namespace ds3231 {
         bool _initialized;
     };
 
+    template <Register _register, typename Traits>
+    Result load(const BasicDS3231<Traits>& ds3231, RegisterBuffer<_register>& buffer) {
+        return ds3231.template load<_register>(buffer);
+    }
+
+    template <Register _register, typename Traits>
+    Result put(BasicDS3231<Traits>& ds3231, RegisterBuffer<_register>& buffer) {
+        return ds3231.template put<_register>(buffer);
+    }
+
 #if defined(PICO_RP2040) && PICO_RP2040
-    Result sync_system_clocks(const DS3231& rtc_device) {
+    template <typename Traits>
+    Result sync_system_clocks(const BasicDS3231<Traits>& rtc_device) {
         RegisterBuffer<Register::timekeeping> buffer;
-        Result result = rtc_device.load<Register::timekeeping>(buffer);
+        Result result = rtc_device.template load<Register::timekeeping>(buffer);
         if (result != Result::success) {
             return result;
         }
@@ -209,20 +221,21 @@ namespace ds3231 {
     }
 #endif
 
-    static inline Result initialize_clock_time(DS3231& ds3231) {
+    template <typename Traits>
+    static inline Result initialize_clock_time(BasicDS3231<Traits>& ds3231) {
         Result result;
         if ((result = ds3231.initialize()) != Result::success) {
             return result;
         }
 
         RegisterBuffer<Register::control_and_status> cas_buffer;
-        if ((result = ds3231.load<Register::control_and_status>(cas_buffer)) != Result::success) {
+        if ((result = ds3231.template load<Register::control_and_status>(cas_buffer)) != Result::success) {
             return result;
         }
 
 
         RegisterBuffer<Register::timekeeping> dt_buffer;
-        if ((result = ds3231.load<Register::timekeeping>(dt_buffer)) != Result::success) {
+        if ((result = ds3231.template load<Register::timekeeping>(dt_buffer)) != Result::success) {
             return result;
         }
 
@@ -238,7 +251,7 @@ namespace ds3231 {
             if (flags.oscillator_stop_flag) {
                 flags.oscillator_stop_flag = false;
                 RegisterDeclaration<Register::control_and_status>::flags_to_buffer(flags, cas_buffer);
-                if ((result = ds3231.put<Register::control_and_status>(cas_buffer)) != Result::success) {
+                if ((result = ds3231.template put<Register::control_and_status>(cas_buffer)) != Result::success) {
                     return result;
                 }
             }
@@ -248,4 +261,6 @@ namespace ds3231 {
 
         return Result::success;
     }
+
+    using DS3231 = BasicDS3231<DefaultTraits>;
 }
