@@ -279,8 +279,16 @@ namespace ds3231 {
         static constexpr uint8_t register_length = 0x01;
 
         enum AddressFunctionOffset : uint8_t {
-            aging_offset = 0x00
+            af_aging_offset = 0x00
         };
+
+        static inline int8_t buffer_to_aging_offset(const uint8_t (&buffer)[register_length]) {
+            return static_cast<int8_t>(buffer[af_aging_offset]);
+        }
+
+        static inline void aging_offset_to_buffer(const int8_t& aging_offset, uint8_t (&buffer)[register_length]) {
+            buffer[af_aging_offset] = static_cast<uint8_t>(aging_offset);
+        }
     };
 
     template <>
@@ -293,6 +301,10 @@ namespace ds3231 {
             af_temperature_msb = 0x00,
             af_temperature_lsb = 0x00
         };
+
+        static inline float buffer_to_temperature(const uint8_t (&buffer)[register_length]) {
+            return ((buffer[af_temperature_msb] << 8) | (buffer[af_temperature_msb] & 0b11000000)) / 256.0;
+        }
     };
 
     constexpr uint8_t max_register_length = 0x12;
