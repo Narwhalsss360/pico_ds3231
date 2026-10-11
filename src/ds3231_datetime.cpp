@@ -3,9 +3,6 @@
 
 using namespace ds3231;
 
-DateTime::DateTime()
-    : time({}) {}
-
 DateTime::DateTime(const tm& time)
     : time(time) {}
 
@@ -78,4 +75,52 @@ std::time_t DateTime::to_epoch() const {
         }
     }
     return pico_dt;
+}
+
+
+DateTime ds3231::subtract_calendar(const DateTime& lhs, const DateTime& rhs) {
+    if (lhs.to_epoch() < rhs.to_epoch()) {
+        return DateTime();
+    }
+
+    int sec   = lhs.time.tm_sec   - rhs.time.tm_sec;
+    int min   = lhs.time.tm_min   - rhs.time.tm_min;
+    int hour  = lhs.time.tm_hour  - rhs.time.tm_hour;
+    int day   = lhs.time.tm_mday  - rhs.time.tm_mday;
+    int month = lhs.time.tm_mon   - rhs.time.tm_mon;
+    int year  = lhs.time.tm_year  - rhs.time.tm_year;
+
+    if (sec < 0) {
+        sec += 60;
+        min--;
+    }
+
+    if (min < 0) {
+        min += 60;
+        hour--;
+    }
+
+    if (hour < 0) {
+        hour += 24;
+        day--;
+    }
+
+    if (day < 0) {
+        int prev_mon = lhs.time.tm_mon - 1;
+        int prev_year = lhs.time.tm_year;
+        if (prev_mon < 0) {
+            prev_mon = 11;
+            prev_year--;
+        }
+
+        day += days_in_month(prev_mon, prev_year);
+        month--;
+    }
+
+    if (month < 0) {
+        month += 12;
+        year--;
+    }
+
+    return DateTime(year + 1900, month + 1, day, hour, min, sec);
 }
