@@ -113,7 +113,7 @@ namespace ds3231 {
             return valid();
         }
 
-        inline operator const std::time_t() const {
+        inline explicit operator const std::time_t() const {
             return to_epoch();
         }
 
