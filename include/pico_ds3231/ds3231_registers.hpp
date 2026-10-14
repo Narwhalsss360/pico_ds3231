@@ -230,20 +230,20 @@ namespace ds3231 {
 
         static inline Flags buffer_to_flags(const uint8_t (&buffer)[register_length]) {
             return Flags(
-                buffer[af_control] & b_alarm_1_interrupt_enable,
-                buffer[af_control] & b_alarm_2_interrupt_enable,
-                buffer[af_control] & b_interrupt_control,
-                buffer[af_control] & b_rate_select_2,
-                buffer[af_control] & b_rate_select_1,
-                buffer[af_control] & b_convert_temperature,
-                buffer[af_control] & b_battery_backed_square_wave_enable,
-                buffer[af_control] & b_enable_oscillator,
+                (buffer[af_control] & b_alarm_1_interrupt_enable) != 0,
+                (buffer[af_control] & b_alarm_2_interrupt_enable) != 0,
+                (buffer[af_control] & b_interrupt_control) != 0,
+                (buffer[af_control] & b_rate_select_2) != 0,
+                (buffer[af_control] & b_rate_select_1) != 0,
+                (buffer[af_control] & b_convert_temperature) != 0,
+                (buffer[af_control] & b_battery_backed_square_wave_enable) != 0,
+                (buffer[af_control] & b_enable_oscillator) != 0,
 
-                buffer[af_control_and_status] & b_alarm_1_flag,
-                buffer[af_control_and_status] & b_alarm_2_flag,
-                buffer[af_control_and_status] & b_busy,
-                buffer[af_control_and_status] & b_enable_32khz_output,
-                buffer[af_control_and_status] & b_oscillator_stop_flag
+                (buffer[af_control_and_status] & b_alarm_1_flag) != 0,
+                (buffer[af_control_and_status] & b_alarm_2_flag) != 0,
+                (buffer[af_control_and_status] & b_busy) != 0,
+                (buffer[af_control_and_status] & b_enable_32khz_output) != 0,
+                (buffer[af_control_and_status] & b_oscillator_stop_flag) != 0
             );
         }
 

@@ -3,7 +3,7 @@
 using namespace ds3231;
 
 bool RegisterDeclaration<Register::timekeeping>::is_12_hour(const uint8_t (&buffer)[register_length]) {
-    return (buffer[0x02] & 0b01000000) > 0;
+    return (buffer[0x02] & 0b01000000) != 0;
 }
 
 void RegisterDeclaration<Register::timekeeping>::buffer_to_tm(const uint8_t (&buffer)[register_length], tm& time) {
@@ -37,9 +37,8 @@ void RegisterDeclaration<Register::timekeeping>::buffer_to_tm(const uint8_t (&bu
     time.tm_mon += 10 * ((buffer[af_month_and_century] & 0b00010000) >> 4);
     time.tm_mon -= 1;
 
-    time.tm_year = ((buffer[af_month_and_century] & 0b10000000) > 0) ? 100 : 0;
-    time.tm_year += buffer[af_year] & 0b00001111;
-    time.tm_year += 10 * ((buffer[af_year] & 0b11110000) >> 4);
+    const int year = (buffer[af_year] & 0b00001111) + 10 * ((buffer[af_year] & 0b11110000) >> 4);
+    time.tm_year = 100 + (((buffer[af_month_and_century] & 0b10000000) != 0) ? 100 : 0) + year;
 
     time.tm_wday = (buffer[af_day] & 0b00000111);
     time.tm_wday -= 1;
@@ -52,11 +51,15 @@ tm RegisterDeclaration<Register::timekeeping>::buffer_to_tm(const uint8_t (&buff
 }
 
 void RegisterDeclaration<Register::timekeeping>::tm_to_buffer(const tm& time, uint8_t (&buffer)[register_length]) {
+    const int full_year = time.tm_year + 1900;
+    const int year = full_year % 100;
+    const bool century_bit = full_year >= 2100;
+
     buffer[af_seconds] = static_cast<uint8_t>((time.tm_sec / 10) << 4) | static_cast<uint8_t>(time.tm_sec % 10);
     buffer[af_minutes] = static_cast<uint8_t>((time.tm_min / 10) << 4) | static_cast<uint8_t>(time.tm_min % 10);
     buffer[af_hours] = static_cast<uint8_t>((time.tm_hour / 10) << 4) | static_cast<uint8_t>(time.tm_hour % 10);
-    buffer[af_day] = static_cast<uint8_t>((time.tm_wday + 1) % 10);
+    buffer[af_day] = static_cast<uint8_t>((time.tm_wday + 1) % 7 + 1);
     buffer[af_date] = static_cast<uint8_t>((time.tm_mday / 10) << 4) | static_cast<uint8_t>(time.tm_mday % 10);
-    buffer[af_month_and_century] = static_cast<uint8_t>((time.tm_year / 100) << 7) | static_cast<uint8_t>(((time.tm_mon + 1) / 10) << 4) | static_cast<uint8_t>((time.tm_mon + 1) % 10);
-    buffer[af_year] = static_cast<uint8_t>(((time.tm_year % 100) / 10) << 4) | static_cast<uint8_t>(((time.tm_year % 100) % 10));
+    buffer[af_month_and_century] = static_cast<uint8_t>(century_bit ? 0b10000000 : 0x00) | static_cast<uint8_t>(((time.tm_mon + 1) / 10) << 4) | static_cast<uint8_t>((time.tm_mon + 1) % 10);
+    buffer[af_year] = static_cast<uint8_t>((year / 10) << 4) | static_cast<uint8_t>(year % 10);
 }

@@ -33,6 +33,7 @@ namespace ds3231 {
         unknown_error,
         no_device,
         incomplete_read,
+        incomplete_write,
         timeout,
         buffer_too_small,
         buffer_too_large,
@@ -134,7 +135,9 @@ namespace ds3231 {
             int retval = traits.i2c_write(traits.i2c_instance, traits.address, &register_start, 1, true);
             if (retval == PICO_ERROR_GENERIC) {
                 return Result::no_device;
-            } else if (retval < 0) {
+            } else if (retval == PICO_ERROR_TIMEOUT) {
+                return Result::timeout;
+            }else if (retval < 0) {
                 return Result::unknown_error;
             }
 
@@ -166,11 +169,15 @@ namespace ds3231 {
             transit_buffer[0] = register_start;
             std::memcpy(transit_buffer + 1, buffer, register_length);
 
-            int retval = traits.i2c_write(traits.i2c_instance, traits.address, transit_buffer, register_length, true);
+            int retval = traits.i2c_write(traits.i2c_instance, traits.address, transit_buffer, register_length + 1, true);
             if (retval == PICO_ERROR_GENERIC) {
                 return Result::no_device;
+            } else if (retval == PICO_ERROR_TIMEOUT) {
+                return Result::timeout;
             } else if (retval < 0) {
                 return Result::unknown_error;
+            } else if (retval != register_length + 1) {
+                return Result::incomplete_write;
             }
 
             return Result::success;
@@ -243,7 +250,7 @@ namespace ds3231 {
         RegisterDeclaration<Register::timekeeping>::buffer_to_tm(dt_buffer, dt.time);
         RegisterDeclaration<Register::control_and_status>::Flags flags = RegisterDeclaration<Register::control_and_status>::buffer_to_flags(cas_buffer);
 
-        if (dt.to_epoch() < compile_time.to_epoch() || flags.oscillator_stop_flag) {
+        if (flags.oscillator_stop_flag) {
             if ((result = ds3231.adjust(compile_time)) != Result::success) {
                 return result;
             }
