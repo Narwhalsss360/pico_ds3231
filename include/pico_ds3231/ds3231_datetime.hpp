@@ -105,6 +105,15 @@ namespace ds3231 {
 
         ::datetime_t to_pico_datetime() const;
 
+        inline DateTime& fix_dow() {
+            std::time_t corrected_epoch = std::mktime(&time);
+            if (corrected_epoch == -1) {
+                time = invalid_time;
+            }
+
+            return *this;
+        }
+
         inline bool valid() const {
             return ::ds3231::valid(time);
         }

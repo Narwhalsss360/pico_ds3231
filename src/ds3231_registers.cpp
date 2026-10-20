@@ -58,7 +58,7 @@ void RegisterDeclaration<Register::timekeeping>::tm_to_buffer(const tm& time, ui
     buffer[af_seconds] = static_cast<uint8_t>((time.tm_sec / 10) << 4) | static_cast<uint8_t>(time.tm_sec % 10);
     buffer[af_minutes] = static_cast<uint8_t>((time.tm_min / 10) << 4) | static_cast<uint8_t>(time.tm_min % 10);
     buffer[af_hours] = static_cast<uint8_t>((time.tm_hour / 10) << 4) | static_cast<uint8_t>(time.tm_hour % 10);
-    buffer[af_day] = static_cast<uint8_t>((time.tm_wday + 1) % 7 + 1);
+    buffer[af_day] = static_cast<uint8_t>((time.tm_wday + 1));
     buffer[af_date] = static_cast<uint8_t>((time.tm_mday / 10) << 4) | static_cast<uint8_t>(time.tm_mday % 10);
     buffer[af_month_and_century] = static_cast<uint8_t>(century_bit ? 0b10000000 : 0x00) | static_cast<uint8_t>(((time.tm_mon + 1) / 10) << 4) | static_cast<uint8_t>((time.tm_mon + 1) % 10);
     buffer[af_year] = static_cast<uint8_t>((year / 10) << 4) | static_cast<uint8_t>(year % 10);
