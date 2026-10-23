@@ -53,8 +53,46 @@ namespace ds3231 {
         );
     }
 
+    constexpr bool valid_date_and_time(const std::tm& time) {
+        return (
+            0 <= time.tm_sec  && time.tm_sec  <= 60 &&
+            0 <= time.tm_min  && time.tm_min  <= 59 &&
+            0 <= time.tm_hour && time.tm_hour <= 23 &&
+            0 <= time.tm_mon  && time.tm_mon  <= 11 &&
+            1 <= time.tm_mday && time.tm_mday <= days_in_month(time.tm_mon, time.tm_year)
+        );
+    }
+
+    namespace days_of_the_week {
+        using int_type = int8_t;
+
+        enum DayOfTheWeek : int_type {
+            Sunday,
+            Monday,
+            Tuesday,
+            Wednesday,
+            Thursday,
+            Friday,
+            Saturday,
+        };
+
+        constexpr int8_t invalid_day_of_week = -1;
+
+        constexpr int8_t min = Sunday;
+
+        constexpr int8_t max = Saturday;
+    }
+
+    using days_of_the_week::DayOfTheWeek;
+
+    using days_of_the_week::invalid_day_of_week;
+
     class DateTime {
     public:
+        struct compile_time_tag {};
+
+        static constexpr compile_time_tag compile_time{};
+
         tm time;
 
         constexpr DateTime(const char* date, const char* time_str)
@@ -95,6 +133,23 @@ namespace ds3231 {
 
         DateTime(const tm& time);
 
+        explicit constexpr DateTime(int year, int month, int day, int hour, int min, int sec, days_of_the_week::int_type wday, int yearday, int isdst, compile_time_tag)
+            : time({
+                .tm_sec  = sec,
+                .tm_min  = min,
+                .tm_hour = hour,
+                .tm_mday = day,
+                .tm_mon  = month - 1,
+                .tm_year = year - 1900,
+                .tm_wday = (days_of_the_week::min <= wday && wday <= days_of_the_week::max) ? wday : invalid_day_of_week,
+                .tm_yday = yearday,
+                .tm_isdst = isdst
+            }) {}
+
+        static inline constexpr DateTime compiled(int year, int month, int day, int hour = 0, int min = 0, int sec = 0, int wday = -1, int yearday = 0, int isdst = -1) {
+            return DateTime(year, month, day, hour, min, sec, wday, yearday, isdst, compile_time);
+        }
+
         DateTime(int year, int month, int day, int hour = 0, int min = 0, int sec = 0, int wday = -1);
 
         DateTime(std::time_t epoch);
@@ -133,63 +188,52 @@ namespace ds3231 {
 
     constexpr DateTime compile_time = DateTime(__DATE__, __TIME__);
 
-    class TimeSpan {
-    private:
-        std::int64_t _seconds;
+    constexpr DateTime epoch_start = DateTime::compiled(1970, 1, 1, 0, 0, 0, DayOfTheWeek::Thursday);
 
-    public:
-        constexpr TimeSpan() : _seconds(0) {}
-
-        constexpr TimeSpan(std::int64_t seconds) : _seconds(seconds) {}
-
-        constexpr TimeSpan(int days, int hours, int minutes, int seconds)
-            : _seconds((static_cast<std::int64_t>(days) * 86400) +
-                       (static_cast<std::int64_t>(hours) * 3600) +
-                       (static_cast<std::int64_t>(minutes) * 60) +
-                       seconds) {}
-
-        constexpr std::int64_t total_seconds() const { return _seconds; }
-
-        constexpr int days() const    { return static_cast<int>(_seconds / 86400); }
-
-        constexpr int hours() const   { return static_cast<int>((_seconds % 86400) / 3600); }
-
-        constexpr int minutes() const { return static_cast<int>((_seconds % 3600) / 60); }
-
-        constexpr int seconds() const { return static_cast<int>(_seconds % 60); }
-
-        constexpr TimeSpan operator+(const TimeSpan& rhs) const { return TimeSpan(_seconds + rhs._seconds); }
-
-        constexpr TimeSpan operator-(const TimeSpan& rhs) const { return TimeSpan(_seconds - rhs._seconds); }
-
-        constexpr bool operator==(const TimeSpan& rhs) const { return _seconds == rhs._seconds; }
-
-        constexpr bool operator!=(const TimeSpan& rhs) const { return _seconds != rhs._seconds; }
-
-        constexpr bool operator<(const TimeSpan& rhs)  const { return _seconds < rhs._seconds; }
-
-        constexpr bool operator<=(const TimeSpan& rhs) const { return _seconds <= rhs._seconds; }
-
-        constexpr bool operator>(const TimeSpan& rhs)  const { return _seconds > rhs._seconds; }
-
-        constexpr bool operator>=(const TimeSpan& rhs) const { return _seconds >= rhs._seconds; }
-    };
-
-    namespace operators {
-        inline TimeSpan operator-(const DateTime& lhs, const DateTime& rhs) {
-            return TimeSpan(static_cast<std::int64_t>(lhs.to_epoch() - rhs.to_epoch()));
+    inline static DateTime subtract_calendar(const DateTime& lhs, const DateTime& rhs) {
+        if (lhs.to_epoch() < rhs.to_epoch()) {
+            return DateTime();
         }
 
-        inline DateTime operator+(const DateTime& lhs, const TimeSpan& rhs) {
-            return DateTime(lhs.to_epoch() + rhs.total_seconds());
+        int sec   = lhs.time.tm_sec   - rhs.time.tm_sec;
+        int min   = lhs.time.tm_min   - rhs.time.tm_min;
+        int hour  = lhs.time.tm_hour  - rhs.time.tm_hour;
+        int day   = lhs.time.tm_mday  - rhs.time.tm_mday;
+        int month = lhs.time.tm_mon   - rhs.time.tm_mon;
+        int year  = lhs.time.tm_year  - rhs.time.tm_year;
+
+        if (sec < 0) {
+            sec += 60;
+            min--;
         }
 
-        inline DateTime operator-(const DateTime& lhs, const TimeSpan& rhs) {
-            return DateTime(lhs.to_epoch() - rhs.total_seconds());
+        if (min < 0) {
+            min += 60;
+            hour--;
         }
+
+        if (hour < 0) {
+            hour += 24;
+            day--;
+        }
+
+        if (day < 0) {
+            int prev_mon = lhs.time.tm_mon - 1;
+            int prev_year = lhs.time.tm_year;
+            if (prev_mon < 0) {
+                prev_mon = 11;
+                prev_year--;
+            }
+
+            day += days_in_month(prev_mon, prev_year);
+            month--;
+        }
+
+        if (month < 0) {
+            month += 12;
+            year--;
+        }
+
+        return DateTime(year + 1900, month + 1, day, hour, min, sec);
     }
-
-    using namespace operators;
-
-    DateTime subtract_calendar(const DateTime& lhs, const DateTime& rhs);
 }
